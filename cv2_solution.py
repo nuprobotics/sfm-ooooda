@@ -6,19 +6,30 @@ from matplotlib.widgets import Slider
 import yaml
 
 
+def visualize_matches(image1, image2, kp1, kp2, matches):
+    match_img = cv2.drawMatches(image1, kp1, image2, kp2, matches, None,
+                                flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    cv2.imshow("Matches", match_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 # Task 2
-def get_matches(image1, image2) -> typing.Tuple[
+def get_matches(image1, image2, k_ratio=0.75) -> typing.Tuple[
     typing.Sequence[cv2.KeyPoint], typing.Sequence[cv2.KeyPoint], typing.Sequence[cv2.DMatch]]:
-    sift = cv2.SIFT_create()
-    img1_gray = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
-    img2_gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
-    kp1, descriptors1 = sift.detectAndCompute(img1_gray, None)
-    kp2, descriptors2 = sift.detectAndCompute(img2_gray, None)
-
-    bf = cv2.BFMatcher()
-    matches_1_to_2: typing.Sequence[typing.Sequence[cv2.DMatch]] = bf.knnMatch(descriptors1, descriptors2, k=2)
-
-    # YOUR CODE HERE
+    pass
+    # sift = cv2.SIFT_create()
+    # img1_gray = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+    # img2_gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
+    # kp1, descriptors1 = sift.detectAndCompute(img1_gray, None)
+    # kp2, descriptors2 = sift.detectAndCompute(img2_gray, None)
+    # bf = cv2.BFMatcher()
+    # matches_1_to_2 = bf.knnMatch(descriptors1, descriptors2, k=2)
+    # matches_2_to_1 = bf.knnMatch(descriptors2, descriptors1, k=2)
+    # good_matches_1_to_2 = [m for m, n in matches_1_to_2 if m.distance < k_ratio * n.distance]
+    # good_matches_2_to_1 = [m for m, n in matches_2_to_1 if m.distance < k_ratio * n.distance]
+    # mutual_matches = [m for m in good_matches_1_to_2 if m.trainIdx in {match.queryIdx for match in good_matches_2_to_1}]
+    # return kp1, kp2, mutual_matches
 
 
 def get_second_camera_position(kp1, kp2, matches, camera_matrix):
@@ -40,8 +51,17 @@ def triangulation(
         kp2: typing.Sequence[cv2.KeyPoint],
         matches: typing.Sequence[cv2.DMatch]
 ):
-    pass
-    # YOUR CODE HERE
+    P1 = camera_matrix @ np.hstack((camera1_rotation_matrix, camera1_translation_vector))
+    P2 = camera_matrix @ np.hstack((camera2_rotation_matrix, camera2_translation_vector))
+    points_3d = []
+    for match in matches:
+        pt1 = np.array(kp1[match.queryIdx].pt)
+        pt2 = np.array(kp2[match.trainIdx].pt)
+        pt1_hom = np.array([pt1[0], pt1[1], 1])
+        pt2_hom = np.array([pt2[0], pt2[1], 1])
+        points_4d_hom = cv2.triangulatePoints(P1, P2, pt1_hom[:2], pt2_hom[:2])
+        points_3d.append(points_4d_hom[:3] / points_4d_hom[3])
+    return np.array(points_3d).reshape(-1, 3)
 
 
 # Task 4
@@ -57,8 +77,11 @@ def resection(
 
 
 def convert_to_world_frame(translation_vector, rotation_matrix):
-    pass
-    # YOUR CODE HERE
+    translation_vector = np.array(translation_vector)
+    rotation_matrix = np.array(rotation_matrix)
+    camera_position = -rotation_matrix.T @ translation_vector
+    camera_orientation = rotation_matrix.T
+    return camera_position, camera_orientation
 
 
 def visualisation(
@@ -69,7 +92,6 @@ def visualisation(
         camera_position3: np.ndarray,
         camera_rotation3: np.ndarray,
 ):
-
     def plot_camera(ax, position, direction, label):
         color_scatter = 'blue' if label != 'Camera 3' else 'green'
         # print(position)
@@ -79,7 +101,6 @@ def visualisation(
         ax.quiver(position[0][0], position[1][0], position[2][0], direction[0], direction[1], direction[2],
                   length=1, color=color_quiver, arrow_length_ratio=0.2)
         ax.text(position[0][0], position[1][0], position[2][0], label, color='black')
-
 
     camera_positions = [camera_position1, camera_position2, camera_position3]
     camera_directions = [camera_rotation1[:, 2], camera_rotation2[:, 2], camera_rotation3[:, 2]]
@@ -109,7 +130,6 @@ def visualisation(
     ax_azim_slider = plt.axes([0.1, 0.05, 0.65, 0.03])
     azim_slider = Slider(ax_azim_slider, 'Azim', 0, 360, valinit=initial_azim)
 
-
     def update(val):
         elev = elev_slider.val
         azim = azim_slider.val
@@ -134,7 +154,7 @@ def main():
     R2, t2, E = get_second_camera_position(key_points1, key_points2, matches_1_to_2, camera_matrix)
     triangulated_points = triangulation(
         camera_matrix,
-        np.array([0, 0, 0]).reshape((3,1)),
+        np.array([0, 0, 0]).reshape((3, 1)),
         np.eye(3),
         t2,
         R2,
@@ -144,7 +164,7 @@ def main():
     )
 
     R3, t3 = resection(image1, image3, camera_matrix, matches_1_to_2, triangulated_points)
-    camera_position1, camera_rotation1 = convert_to_world_frame(np.array([0, 0, 0]).reshape((3,1)), np.eye(3))
+    camera_position1, camera_rotation1 = convert_to_world_frame(np.array([0, 0, 0]).reshape((3, 1)), np.eye(3))
     camera_position2, camera_rotation2 = convert_to_world_frame(t2, R2)
     camera_position3, camera_rotation3 = convert_to_world_frame(t3, R3)
     visualisation(
@@ -155,6 +175,7 @@ def main():
         camera_position3,
         camera_rotation3
     )
+
 
 if __name__ == "__main__":
     main()
