@@ -5,39 +5,30 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 import yaml
 
+
 def visualize_matches(image1, image2, kp1, kp2, matches):
-    match_img = cv2.drawMatches(image1, kp1, image2, kp2, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    match_img = cv2.drawMatches(image1, kp1, image2, kp2, matches, None,
+                                flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
     cv2.imshow("Matches", match_img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
 # Task 2
-def get_matches(image1, image2, k_ratio_test=0.75) -> typing.Tuple[
+def get_matches(image1, image2, k_ratio=0.75) -> typing.Tuple[
     typing.Sequence[cv2.KeyPoint], typing.Sequence[cv2.KeyPoint], typing.Sequence[cv2.DMatch]]:
     sift = cv2.SIFT_create()
     img1_gray = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
     img2_gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
     kp1, descriptors1 = sift.detectAndCompute(img1_gray, None)
     kp2, descriptors2 = sift.detectAndCompute(img2_gray, None)
-
-    bf_knn = cv2.BFMatcher()
-    knn_matches = bf_knn.knnMatch(descriptors1, descriptors2, k=2)
-
-    final_matches = []
-
-    for knn_match in knn_matches:
-        if len(knn_match) == 2:
-            best_dist = knn_match[0].distance
-            second_best_dist = knn_match[1].distance
-
-            ratio = best_dist / second_best_dist
-            if ratio < k_ratio_test:
-                match1 = knn_match[0]
-                reverse_knn_matches = bf_knn.knnMatch(descriptors2, descriptors1, k=2)
-                reverse_match = reverse_knn_matches[match1.trainIdx][0]
-                if reverse_match.trainIdx == match1.queryIdx:
-                    final_matches.append(match1)
-    return kp1, kp2, final_matches
+    bf = cv2.BFMatcher()
+    matches_1_to_2 = bf.knnMatch(descriptors1, descriptors2, k=2)
+    matches_2_to_1 = bf.knnMatch(descriptors2, descriptors1, k=2)
+    good_matches_1_to_2 = [m for m, n in matches_1_to_2 if m.distance < k_ratio * n.distance]
+    good_matches_2_to_1 = [m for m, n in matches_2_to_1 if m.distance < k_ratio * n.distance]
+    mutual_matches = [m for m in good_matches_1_to_2 if m.trainIdx in {match.queryIdx for match in good_matches_2_to_1}]
+    return kp1, kp2, mutual_matches
 
 
 def get_second_camera_position(kp1, kp2, matches, camera_matrix):
