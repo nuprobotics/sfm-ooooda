@@ -17,18 +17,19 @@ def visualize_matches(image1, image2, kp1, kp2, matches):
 # Task 2
 def get_matches(image1, image2, k_ratio=0.75) -> typing.Tuple[
     typing.Sequence[cv2.KeyPoint], typing.Sequence[cv2.KeyPoint], typing.Sequence[cv2.DMatch]]:
-    sift = cv2.SIFT_create()
-    img1_gray = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
-    img2_gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
-    kp1, descriptors1 = sift.detectAndCompute(img1_gray, None)
-    kp2, descriptors2 = sift.detectAndCompute(img2_gray, None)
-    bf = cv2.BFMatcher()
-    matches_1_to_2 = bf.knnMatch(descriptors1, descriptors2, k=2)
-    matches_2_to_1 = bf.knnMatch(descriptors2, descriptors1, k=2)
-    good_matches_1_to_2 = [m for m, n in matches_1_to_2 if m.distance < k_ratio * n.distance]
-    good_matches_2_to_1 = [m for m, n in matches_2_to_1 if m.distance < k_ratio * n.distance]
-    mutual_matches = [m for m in good_matches_1_to_2 if m.trainIdx in {match.queryIdx for match in good_matches_2_to_1}]
-    return kp1, kp2, mutual_matches
+    pass
+    # sift = cv2.SIFT_create()
+    # img1_gray = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+    # img2_gray = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
+    # kp1, descriptors1 = sift.detectAndCompute(img1_gray, None)
+    # kp2, descriptors2 = sift.detectAndCompute(img2_gray, None)
+    # bf = cv2.BFMatcher()
+    # matches_1_to_2 = bf.knnMatch(descriptors1, descriptors2, k=2)
+    # matches_2_to_1 = bf.knnMatch(descriptors2, descriptors1, k=2)
+    # good_matches_1_to_2 = [m for m, n in matches_1_to_2 if m.distance < k_ratio * n.distance]
+    # good_matches_2_to_1 = [m for m, n in matches_2_to_1 if m.distance < k_ratio * n.distance]
+    # mutual_matches = [m for m in good_matches_1_to_2 if m.trainIdx in {match.queryIdx for match in good_matches_2_to_1}]
+    # return kp1, kp2, mutual_matches
 
 
 def get_second_camera_position(kp1, kp2, matches, camera_matrix):
